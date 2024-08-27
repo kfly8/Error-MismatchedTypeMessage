@@ -1,0 +1,5 @@
+name = "Error-MismatchedTypeMessage"
+badges = ["github-actions/test.yml"]
+module_maker="ModuleBuildTiny"
+static_install = "auto"
+

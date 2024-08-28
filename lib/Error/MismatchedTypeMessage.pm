@@ -1,5 +1,4 @@
 package Error::MismatchedTypeMessage;
-use 5.008001;
 use strict;
 use warnings;
 
@@ -40,10 +39,7 @@ sub build_message {
 
         $reason =~ s/^(.+)/${indent}$1/mg;
         $message .= "\n\n$reason";
-
-        if ($usage) {
-            $message .= "\n\n$usage";
-        }
+        $message .= "\n\n$usage" if $usage;
 
         return $message;
     };
@@ -216,7 +212,13 @@ sub _dd_for_template {
         }
     }
     elsif ($ref eq 'HASH') {
-        return "{...}";
+        my @keys = keys %$value;
+        if (@keys) {
+            return "{...}";
+        }
+        else {
+            return '{}';
+        }
     }
     else {
         return _dd($value);

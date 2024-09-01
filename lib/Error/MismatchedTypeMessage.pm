@@ -88,7 +88,7 @@ sub _build_find_error_reason_for_Dict {
     my $message_not_hashref = _error_message_expected($typename, $template);
 
     my $dict = { @{ $type->parameters } };
-    my $keys = [ keys %$dict ];
+    my $keys = [ sort keys %$dict ];
 
     my $suffix = @$keys > 1 ? ', ...' : '';
 

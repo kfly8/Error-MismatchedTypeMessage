@@ -7,6 +7,7 @@ use Exporter 'import';
 our @EXPORT = qw(
     run_tests
     run_str_tests
+    run_dict_tests
 );
 
 use Error::MismatchedTypeMessage qw( build_message );
@@ -24,7 +25,6 @@ sub run_tests {
          my $case     = $t->{case};
          my $got      = $message->($t->{argument});
          my $expected = $t->{expected};
-         chomp($expected) if defined $expected;
 
          my $ret = defined $expected ? ok($got eq $expected, $case) : ok(!defined $got, $case);
          if (!$ret && $expected) {
@@ -43,7 +43,9 @@ sub run_str_tests {
         type     => $type,
         typename => 'Str',
         template => '$obj->hello(%s)',
-        usage    => 'hello(Str $message)'
+        usage    => <<'...'
+hello(Str $message)
+...
     );
 
     my @tests = (
@@ -127,6 +129,132 @@ error: mismatched type
     hello(Str $message)
 ...
         },
+    );
+
+    run_tests($message, @tests);
+}
+
+sub run_dict_tests {
+    my $type = shift;
+
+    my $message = build_message(
+        type     => $type,
+        typename => 'Params',
+        template => '$obj->hello(%s)',
+        usage => <<'...',
+hello({
+  name => Str,
+  age => Int,
+})
+...
+    );
+
+    my @tests = (
+        {
+            case     => 'Valid Params',
+            argument => { name => 'foo', age => 123 },
+            expected => undef,
+        },
+        {
+            case     => 'Simple string',
+            argument => 'hello',
+            expected => <<'...',
+error: mismatched type
+
+  $obj->hello('hello')
+              ^^^^^^^ expected `Params`, but got `'hello'`
+
+  Usage:
+    hello({
+      name => Str,
+      age => Int,
+    })
+...
+        },
+        {
+            case     => 'Invalid name',
+            argument => { name => {}, age => 123 },
+            expected => <<'...',
+error: mismatched type
+
+  $obj->hello({ 'name' => {}, ... })
+                          ^^ expected `Str`, but got HASH reference
+
+  Usage:
+    hello({
+      name => Str,
+      age => Int,
+    })
+...
+        },
+        {
+            case     => 'Invalid age',
+            argument => { name => 'foo', age => 'hello' },
+            expected => <<'...',
+error: mismatched type
+
+  $obj->hello({ 'age' => 'hello', ... })
+                         ^^^^^^^ expected `Int`, but got `'hello'`
+
+  Usage:
+    hello({
+      name => Str,
+      age => Int,
+    })
+...
+        },
+        {
+            case => 'Missing `name`',
+            argument => { age => 123 },
+            expected => <<'...',
+error: mismatched type
+
+  $obj->hello({...})
+              ^^^^^ missing `name` in Params
+
+  Usage:
+    hello({
+      name => Str,
+      age => Int,
+    })
+...
+        },
+        {
+            case => 'Missing `name` and `age`',
+            argument => {  },
+            expected => <<'...',
+error: mismatched type
+
+  $obj->hello({})
+              ^^ missing `age` and `name` in Params
+
+  Usage:
+    hello({
+      name => Str,
+      age => Int,
+    })
+...
+        },
+        {
+            case => 'Typo key',
+            argument => { nmae => 'foo', age => 123 },
+            expected => <<'...',
+error: mismatched type
+
+  $obj->hello({...})
+              ^^^^^ missing `name` in Params
+
+  $obj->hello({ 'nmae' => ... })
+                ^^^^^^ unknown field `nmae` in Params
+
+  Usage:
+    hello({
+      name => Str,
+      age => Int,
+    })
+...
+        },
+
     );
 
     run_tests($message, @tests);

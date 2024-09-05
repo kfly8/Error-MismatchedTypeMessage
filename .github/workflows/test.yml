@@ -49,6 +49,5 @@ jobs:
 
       - name: Run test
         run: |
-          prove -lr --state=save t
-          prove -lv --state=failed
+          prove -lvr t
 

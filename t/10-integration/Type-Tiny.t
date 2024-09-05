@@ -13,8 +13,6 @@ run_str_tests(Type::Tiny->new(name => 'MyStr', parent => Str));
 
 # Given `Dict` type, run tests
 run_dict_tests(Dict[name => Str,age => Int]);
-
-fail;
 # TODO
 # run_dict_tests(Type::Tiny->new(name => 'MyDict', parent => Dict[name => Str,age => Int]));
 

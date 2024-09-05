@@ -1,54 +1,26 @@
-package t::Util;
+package t::test;
 use strict;
 use warnings;
 
 use Exporter 'import';
 
 our @EXPORT = qw(
-    run_tests
     run_str_tests
     run_dict_tests
 );
 
 use Error::MismatchedTypeMessage qw( build_message );
 
-use Test2::Tools::Basic qw(ok note);
-use Test2::API qw(context);
+use Test2::V0;
 use Text::Diff qw(diff);
 
-sub run_tests {
-    my ($message, @tests) = @_;
-
-    my $c = context;
-
-    for my $t (@tests) {
-         my $case     = $t->{case};
-         my $got      = $message->($t->{argument});
-         my $expected = $t->{expected};
-
-         my $ret = defined $expected ? ok($got eq $expected, $case) : ok(!defined $got, $case);
-         if (!$ret && $expected) {
-             note "Diff between got and expected:";
-             note diff \$got, \$expected;
-         }
-     }
-
-     $c->release;
-}
-
+# Given `Str` type, run tests
+#
+# @param $type : Str
 sub run_str_tests {
     my $type = shift;
 
-    my $message = build_message(
-        type     => $type,
-        typename => 'Str',
-        template => '$obj->hello(%s)',
-        usage    => <<'...'
-hello(Str $message)
-...
-    );
-
-    my @tests = (
+    my @cases = (
         {
             case     => 'Simple string',
             argument => 'hello',
@@ -129,27 +101,31 @@ error: mismatched type
     hello(Str $message)
 ...
         },
-    );
-
-    run_tests($message, @tests);
-}
-
-sub run_dict_tests {
-    my $type = shift;
+    ); # end of cases
 
     my $message = build_message(
+        typename => 'Str',
         type     => $type,
-        typename => 'Params',
         template => '$obj->hello(%s)',
-        usage => <<'...',
-hello({
-  name => Str,
-  age => Int,
-})
+        usage    => <<'...'
+hello(Str $message)
 ...
     );
 
-    my @tests = (
+    _run_tests(
+        "Run `Str` tests with `$type` (@{[ref $type]})",
+        $message,
+        @cases
+    );
+}
+
+# Given `Dict` type, run tests
+#
+# @param $type : Dict[name => Str, age => Int]
+sub run_dict_tests {
+    my $type = shift;
+
+    my @cases = (
         {
             case     => 'Valid Params',
             argument => { name => 'foo', age => 123 },
@@ -255,9 +231,43 @@ error: mismatched type
 ...
         },
 
+    ); # end of cases
+
+    my $message = build_message(
+        type     => $type,
+        typename => 'Params',
+        template => '$obj->hello(%s)',
+        usage => <<'...',
+hello({
+  name => Str,
+  age => Int,
+})
+...
     );
 
-    run_tests($message, @tests);
+    _run_tests(
+        "Run `Dict` tests with `$type` (@{[ref $type]})",
+        $message,
+        @cases
+    );
+}
+
+sub _run_tests {
+    my ($note, $message, @tests) = @_;
+
+    subtest $note => sub {
+        for my $t (@tests) {
+             my $case     = $t->{case};
+             my $got      = $message->($t->{argument});
+             my $expected = $t->{expected};
+
+             my $ret = defined $expected ? ok($got eq $expected, $case) : ok(!defined $got, $case);
+             if (!$ret && $expected) {
+                 note "Diff between got and expected:";
+                 note diff \$got, \$expected;
+             }
+         }
+     };
 }
 
 1;

@@ -24,6 +24,13 @@ jobs:
             "5.12",
             "5.10"
           ]
+        include:
+          - perl: 5.40
+            coverage: true
+            integration: true
+          - perl: 5.38
+            integration: true
+
     name: Perl ${{ matrix.perl }}
     steps:
       - uses: actions/checkout@v3
@@ -31,8 +38,17 @@ jobs:
         uses: shogo82148/actions-setup-perl@v1
         with:
           perl-version: ${{ matrix.perl }}
+
       - name: Install dependencies
-        run: cpanm -nq --installdeps --with-develop --with-recommends .
+        run: cpm install -g --with-all
+
+      - name: Install dependencies for integration tests
+        if: ${{ matrix.integration }}
+        run: |
+          cpm install -g Type::Tiny
+
       - name: Run test
-        run: prove -lr t
+        run: |
+          prove -lr --state=save t
+          prove -lv --state=failed
 

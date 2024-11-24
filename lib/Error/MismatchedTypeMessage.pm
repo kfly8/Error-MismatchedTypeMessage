@@ -6,12 +6,30 @@ use Exporter 'import';
 use Carp qw(croak);
 
 our @EXPORT_OK = qw(
-    build_message
+    build_message_maker
 );
 
 our $VERSION = "0.01";
 
-sub build_message {
+# Create a message maker which is used to generate error message
+#
+# Example:
+#   my $message_maker = build_message_maker(
+#       typename => 'Str',
+#       type     => Types::Standard::Str,
+#       template => 'hello(%s)',
+#       usage    => 'hello(Str $message)',
+#   );
+#
+#   my $message = $message_maker->({});
+#   # =>
+#   # error: mismatched type
+#   #
+#   #   hello({})
+#   #        ^^^ expected `Str`, but got HASH reference
+#   # usage:
+#   #   hello(Str $message)
+sub build_message_maker {
     my (%args) = @_;
 
     # TODO: Validate arguments
@@ -22,7 +40,7 @@ sub build_message {
 
     my $indent = " " x 2;
 
-    my $find_reason = _build_find_error_reason($type, $typename, $template);
+    my $find_reason = _build_error_reason_finder($type, $typename, $template);
 
     if ($usage) {
         $usage =~ s/^(.+)/${indent}${indent}$1/mg;
@@ -45,21 +63,21 @@ sub build_message {
     };
 }
 
-sub _build_find_error_reason {
+sub _build_error_reason_finder {
     my ($type, $typename, $template) = @_;
 
-    return $type->is_a_type_of('Value') ? _build_find_error_reason_for_Value($type, $typename, $template)
-         : $type->is_a_type_of('Dict')  ? _build_find_error_reason_for_Dict($type, $typename, $template)
+    return $type->is_a_type_of('Value') ? _build_error_reason_finder_for_value($type, $typename, $template)
+         : $type->is_a_type_of('Dict')  ? _build_error_reason_finder_for_dict($type, $typename, $template)
          : croak "unsupported type: $type";
 }
 
 # case:
 #   $q->hello([123])
 #             ^^^^^ expected `Str`, but got ARRAY reference
-sub _build_find_error_reason_for_Value {
+sub _build_error_reason_finder_for_value {
     my ($type, $typename, $template) = @_;
 
-    my $message = _error_message_expected($typename, $template);
+    my $message = _error_message_maker_case_expected($typename, $template);
     return sub {
         my $value = shift;
         return if $type->check($value);
@@ -82,10 +100,10 @@ sub _build_find_error_reason_for_Value {
 
 # TODO Slurpy, Option support
 
-sub _build_find_error_reason_for_Dict {
+sub _build_error_reason_finder_for_dict {
     my ($type, $typename, $template) = @_;
 
-    my $message_not_hashref = _error_message_expected($typename, $template);
+    my $message_not_hashref = _error_message_maker_case_expected($typename, $template);
 
     my $dict = { @{ $type->parameters } };
     my $keys = [ sort keys %$dict ];
@@ -96,7 +114,7 @@ sub _build_find_error_reason_for_Dict {
         map {
             my $key = $_;
             my $tmpl = sprintf($template, "{ '$key' => %s$suffix }");
-            $key => _build_find_error_reason($dict->{$key}, $dict->{$key}, $tmpl)
+            $key => _build_error_reason_finder($dict->{$key}, $dict->{$key}, $tmpl)
         } @$keys
     };
 
@@ -128,7 +146,7 @@ sub _build_find_error_reason_for_Dict {
 
         # First, push missing fields
         if (@$missing) {
-            push @$reasons => _error_message(sub {
+            push @$reasons => _error_message_maker(sub {
                 return "missing `@{[join '` and `', @$missing]}` in $typename";
             }, $template)->($value);
         }
@@ -137,7 +155,7 @@ sub _build_find_error_reason_for_Dict {
         my @unknown = grep { !exists $dict->{$_} } keys %$value;
         for my $key (@unknown) {
             my $tmpl = sprintf($template, "{ %s => ... }");
-            push @$reasons => _error_message(sub {
+            push @$reasons => _error_message_maker(sub {
                 return "unknown field `$key` in $typename";
             }, $tmpl)->($key);
         }
@@ -149,7 +167,7 @@ sub _build_find_error_reason_for_Dict {
     }
 }
 
-sub _error_message {
+sub _error_message_maker {
     my ($message_generator, $template) = @_;
 
     my $pos = index($template, '%s');
@@ -171,10 +189,10 @@ sub _error_message {
     }
 }
 
-sub _error_message_expected {
+sub _error_message_maker_case_expected {
     my ($typename, $template) = @_;
 
-    _error_message(sub {
+    _error_message_maker(sub {
         my $value = shift;
 
         my $ref = ref $value || '';
@@ -236,7 +254,24 @@ Error::MismatchedTypeMessage - It's new $module
 
 =head1 SYNOPSIS
 
-    use Error::MismatchedTypeMessage;
+    use Error::MismatchedTypeMessage qw(build_message_maker);
+
+    my $message_maker = build_message_maker(
+        typename => 'Str',
+        type     => Types::Standard::Str,
+        template => 'hello(%s)',
+        usage    => 'hello(Str $message)',
+    );
+
+    my $message = $message_maker->({});
+    # =>
+    # error: mismatched type
+    #
+    #   hello({})
+    #        ^^^ expected `Str`, but got HASH reference
+    # usage:
+    #   hello(Str $message)
+
 
 =head1 DESCRIPTION
 

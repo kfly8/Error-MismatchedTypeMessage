@@ -9,7 +9,7 @@ our @EXPORT = qw(
     run_dict_tests
 );
 
-use Error::MismatchedTypeMessage qw( build_message );
+use Error::MismatchedTypeMessage qw( build_message_maker );
 
 use Test2::V0;
 use Text::Diff qw(diff);
@@ -103,7 +103,7 @@ error: mismatched type
         },
     ); # end of cases
 
-    my $message = build_message(
+    my $message = build_message_maker(
         typename => 'Str',
         type     => $type,
         template => '$obj->hello(%s)',
@@ -233,7 +233,7 @@ error: mismatched type
 
     ); # end of cases
 
-    my $message = build_message(
+    my $message_maker = build_message_maker(
         type     => $type,
         typename => 'Params',
         template => '$obj->hello(%s)',
@@ -247,18 +247,18 @@ hello({
 
     _run_tests(
         "Run `Dict` tests with `$type` (@{[ref $type]})",
-        $message,
+        $message_maker,
         @cases
     );
 }
 
 sub _run_tests {
-    my ($note, $message, @tests) = @_;
+    my ($note, $message_maker, @tests) = @_;
 
     subtest $note => sub {
         for my $t (@tests) {
              my $case     = $t->{case};
-             my $got      = $message->($t->{argument});
+             my $got      = $message_maker->($t->{argument});
              my $expected = $t->{expected};
 
              my $ret = defined $expected ? ok($got eq $expected, $case) : ok(!defined $got, $case);
